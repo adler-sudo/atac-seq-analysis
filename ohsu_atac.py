@@ -110,12 +110,12 @@ def reduce_dimensions(df,n_components):
     return components
 
 # UMAP
-def generate_umap(df):
+def generate_umap(df,random_state=0,n_epochs=30000):
     """
     generate components of umap
     """
     print(df.shape)
-    reducer = umap.UMAP(random_state=0,n_epochs=30000)
+    reducer = umap.UMAP(random_state=random_state,n_epochs=n_epochs)
     components = reducer.fit_transform(df)
 
     return components
@@ -140,7 +140,7 @@ def construct_image(x,y,labels,file:str):
     return None
 
 # perform classification
-def construct_svc(X_train,y_train):
+def construct_svc(X_train,y_train,random_state=0):
     """
     generate svc to classify cell type given ATAC-seq data
     """
