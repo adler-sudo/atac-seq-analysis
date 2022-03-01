@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--filter_threshold',help='Minimum counts per sample.',type=int,default=0)
     parser.add_argument('--n_components',help='Number PCA components.',type=int,default=50)
 
-    parser.add_argument('--umap_first_pc',help='First principal component to use in UMAP.',type=int,default=2)
+    parser.add_argument('--umap_first_pc',help='First principal component to use in UMAP.',type=int,default=0)
     parser.add_argument('--umap_last_pc',help='Last principal component to use in UMAP.',type=int,default=12)
     parser.add_argument('--svc_first_pc',help='First principal component to use in SVC.',type=int,default=0)
     parser.add_argument('--svc_last_pc',help='Last principal component to use in SVC.',type=int,default=12)
@@ -62,10 +62,8 @@ def process_metadata(df,metadata):
 # filter
 def filter_matrix(df,metadata,filter):
     """
-    filter out peaks with fewer than 'filter' reads
+    Removes peaks with fewer than 'filter' reads.
     """
-    # remove peaks for which there are fewer than filter reads
-    # TODO: need to adjust this (only want to remove 0s, not lowly expressed genes)
     count_mask = df.sum(axis=0) > filter
 
     filtered_df = df.loc[:,count_mask]
@@ -80,7 +78,7 @@ def normalize_matrix(df):
     normalize matrix so each sample has equal number of reads
     """
     # normalize
-    normalized_df = df * df.sum(axis=0).median() / df.sum(axis=0).values
+    normalized_df = df * df.sum(axis=0).min() / df.sum(axis=0).values
     
     return normalized_df
 
@@ -93,11 +91,17 @@ def log_transformation(df):
     return log_df
 
 # power transform
-def boxcox_transformation(df):
+def df_transformation(df):
     """
     perform boxcox transformation
     """
     trans_df = PowerTransformer(method="box-cox").fit_transform(df+1)
+    
+    trans_df = trans_df.transpose()
+    trans_df = trans_df / trans_df.max(axis=0)
+    trans_df = trans_df - trans_df.mean(axis=0)
+    trans_df = trans_df.transpose()
+
     return trans_df
 
 # dimensionality reduction
@@ -110,11 +114,10 @@ def reduce_dimensions(df,n_components):
     return components
 
 # UMAP
-def generate_umap(df,random_state=0,n_epochs=30000):
+def generate_umap(df,random_state=0,n_epochs=5000):
     """
     generate components of umap
     """
-    print(df.shape)
     reducer = umap.UMAP(random_state=random_state,n_epochs=n_epochs)
     components = reducer.fit_transform(df)
 
@@ -183,7 +186,7 @@ if __name__ == '__main__':
     df = normalize_matrix(df)
     
     # transform data
-    df = boxcox_transformation(df)
+    df = df_transformation(df)
 
     # conduct pca
     components = reduce_dimensions(
@@ -191,7 +194,6 @@ if __name__ == '__main__':
         df=df.transpose())
 
     # execute UMAP
-    print(components.shape)
     umap_components = generate_umap(components[:,args.umap_first_pc:args.umap_last_pc])
 
     # generate plot
